@@ -2,6 +2,7 @@
 pragma solidity >=0.4.22 <0.9.0;
 // bytes8 = 8 char , bytes16 = 16 char , bytes32 = 32 char ...ect
 // uint8 = 0-255 ,
+// to test new commit
 contract BindingContract {
     struct BindingData {
         uint64 bindingId;
