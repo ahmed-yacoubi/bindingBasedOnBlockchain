@@ -3,6 +3,7 @@ import BindingContract from "./contracts/BindingContract.json";
 import getWeb3 from "./getWeb3";
 import 'bootstrap/dist/css/bootstrap.min.css';
 import "./App.css";
+import {invoke, mcall} from "q";
 
 // const web3 = require('web3');
 
@@ -211,17 +212,18 @@ class App extends Component {
             , this.convertStringToBytes('total', 16)
 
         ];
-        let points = [1, 3, 6, 3];
+        let points = [1, 3, 6, 3 ];
 
         try {
             await contract.methods.createBindingContract(
-                this.convertStringToBytes('ahmed', 16),
+                this.convertStringToBytes('binding name', 16),
                 parseInt(Date.now() / 1000),
                 parseInt((Date.now() / 1000)) + 10000,
                 details,
-                points
-            ).call({from: accounts[0]}).then((result)=>{
-                console.log(result)});
+                points,
+            ).call({from: accounts[0]}).then((result) => {
+                    alert(result)
+                });
         } catch (err) {
             this.handelError(err.message)
         }
