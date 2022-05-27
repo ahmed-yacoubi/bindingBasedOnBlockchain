@@ -29,10 +29,21 @@ module.exports = {
 
   contracts_build_directory: path.join(__dirname, "client/src/contracts"),
   networks: {
-    develop: {
-      host: '127.0.0.1',
-      port: 7545,
-      network_id: '1337'
+    development: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*"   // Any network (default: none)
+    },
+    // development: {
+    //   host: '127.0.0.1',
+    //   port: 7545,
+    //   network_id: '1337',
+    //   gasPrice:   0x1,
+    //   gas:        0x1fffffffffffff
+    // },
+    optimizer: {
+      enabled: true,
+      runs: 1000
     }
   },
   // Set default mocha options here, use special reporters etc.

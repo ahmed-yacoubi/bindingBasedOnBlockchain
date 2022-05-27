@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+// SPDX-License-Identifier: GPL-3.0
+pragma abicoder v2;
+
 // bytes8 = 8 char , bytes16 = 16 char , bytes32 = 32 char ...ect
 // uint8 = 0-255 ,
 // to test new commit
@@ -29,7 +30,7 @@ contract BindingContract {
         bytes16 password;
     }
 
-    struct BindingData {
+    struct BindingData {//
         uint64 bindingId;
         bytes16 name;
         uint64 startDate;
@@ -59,24 +60,19 @@ contract BindingContract {
     mapping(address => Company) public company;
     mapping(address => Municipality) public municipality;
 
-    function signUpCompany(uint64 _companyId,
-        bytes16 _name,
-        bytes16 _phoneNo, bytes16 _specification, bytes16 _password) public  payable returns (bool){
-        if (company[msg.sender].companyId == 0) {
-            company[msg.sender] = Company(_companyId, msg.sender, _name, _phoneNo, _specification, _password);
-            return true;
-        }
-        return false;
+    function signUpCompany(uint64 _companyId, bytes16 _name, bytes16 _phoneNo, bytes16 _specification, bytes16 _password) public payable {
+        require(company[msg.sender].companyId == 0, "already signed");
+
+        company[msg.sender] = Company(_companyId, msg.sender, _name, _phoneNo, _specification, _password);
+
     }
 
     function signUpMunicipality(uint64 _municipalityId,
         bytes16 _name,
-        bytes16 _phoneNo, bytes16 _password) public payable returns (bool){
-        if (municipality[msg.sender].municipalityId == 0) {
-            municipality[msg.sender] = Municipality(_municipalityId, msg.sender, _name, _phoneNo, _password);
-            return true;
-        }
-        return false;
+        bytes16 _phoneNo, bytes16 _password) public payable {
+        require(municipality[msg.sender].municipalityId == 0, "already signed");
+        municipality[msg.sender] = Municipality(_municipalityId, msg.sender, _name, _phoneNo, _password);
+
     }
 
     function loginCompany(bytes16 password) public view returns (bool){
@@ -125,7 +121,7 @@ contract BindingContract {
         require(password == municipality[msg.sender].password, "password not correct");
         require(_details.length == _points.length, "points not equal details");
         for (uint256 i = 0; i < _details.length; i++) {
-            require(!isRepeatedItem(_details, _details[i]), "There are similar items in details");
+            require(!isRepeatedItem(_details, _details[i]), "Repeated details");
         }
         bindingContractCount++;
         bindingContracts[bindingContractCount] = BindingData(
@@ -141,77 +137,67 @@ contract BindingContract {
     }
 
 
-    function getBindingContractsCount() public view returns (uint64) {
-        return bindingContractCount;
-    }
-
     function getBindingById(uint64 bindingId)
     public
     view
     returns (BindingData memory)
     {
-        require(bindingId <= bindingContractCount, "error in binding id");
+        require(bindingId <= bindingContractCount, "invalid id");
         return bindingContracts[bindingId];
     }
 
 
-    function getActiveBindingIds() public view returns (uint64[] memory) {
-        uint64 [] memory _bindingIds;
+    function getBindings(uint8 _bidType, address _address) view external returns (BindingData[] memory) {
+        BindingData  [] memory _bindings = new BindingData[](bindingContractCount);
+        address _deadAddress;
+        uint64 counter = 0;
         for (uint64 i = 1; i <= bindingContractCount; i++) {
-            if (isActive(i) && !bindingContracts[i].isCanceled && !bindingContracts[i].isOpened) {
-                _bindingIds[i - 1] = i;
-            }
-        }
-        return _bindingIds;
-    }
+            if (_bidType == 1) {// get all binding
+                if (_address == _deadAddress || _address == bindingContracts[i].municipalityAddress) {
+                    _bindings[i - 1] = bindingContracts[i];
+                    counter++;
+                }
+            } else if (_bidType == 2) {// get active binding
+                if (isActive(i) && !bindingContracts[i].isCanceled && !bindingContracts[i].isOpened)
+                    if (_address == _deadAddress || _address == bindingContracts[i].municipalityAddress) {
+                        _bindings[i - 1] = bindingContracts[i];
+                        counter++;
+                    }
+            } else if (_bidType == 3) {// get ended binding
+                if (!isActive(i) && !bindingContracts[i].isCanceled && !bindingContracts[i].isOpened)
+                    if (_address == _deadAddress || _address == bindingContracts[i].municipalityAddress) {
+                        _bindings[i - 1] = bindingContracts[i];
+                        counter++;
+                    }
+            } else if (_bidType == 4) {// get opened binding
 
-    function getEndedBindingIds() public view returns (uint64[] memory) {
-        uint64 [] memory _bindingIds;
-        for (uint64 i = 1; i <= bindingContractCount; i++) {
-            if (!isActive(i) && !bindingContracts[i].isCanceled && !bindingContracts[i].isOpened) {
-                _bindingIds[i - 1] = i;
+                if (!isActive(i) && !bindingContracts[i].isCanceled && bindingContracts[i].isOpened)
+                    if (_address == _deadAddress || _address == bindingContracts[i].municipalityAddress) {
+                        _bindings[i - 1] = bindingContracts[i];
+                        counter++;
+                    }
+            } else if (_bidType == 5) {// get all binding
+                if (bindingContracts[i].isCanceled)
+                    if (_address == _deadAddress || _address == bindingContracts[i].municipalityAddress) {
+                        _bindings[i - 1] = bindingContracts[i];
+                        counter++;}
             }
         }
-        return _bindingIds;
-    }
+        BindingData  [] memory _bindings1 = new BindingData[](counter);
+        _bindings1 = _bindings;
+        delete _bindings;
+        return _bindings1;
 
-    function getOpenedBindingIds() public view returns (uint64 [] memory) {
-        uint64 [] memory _bindingIds;
-        for (uint64 i = 1; i <= bindingContractCount; i++) {
-            if (!isActive(i) && !bindingContracts[i].isCanceled && bindingContracts[i].isOpened) {
-                _bindingIds[i - 1] = i;
-            }
-        }
-        return _bindingIds;
-    }
-
-    function getCanceledBindingIds() public view returns (uint64 [] memory) {
-        uint64 [] memory _bindingIds;
-        for (uint64 i = 1; i <= bindingContractCount; i++) {
-            if (bindingContracts[i].isCanceled) {
-                _bindingIds[i - 1] = i;
-            }
-        }
-        return _bindingIds;
-    }
-
-    function getMunicipalityBindingIds(address municipalityAddress) public view returns (uint64 [] memory) {
-        uint64 [] memory _bindingIds;
-        for (uint64 i = 1; i <= bindingContractCount; i++) {
-            if (bindingContracts[i].municipalityAddress == municipalityAddress) {
-                _bindingIds[i - 1] = i;
-            }
-        }
-        return _bindingIds;
     }
 
 
     function openBinding(uint64 _bindingId, uint64 _requestId, bytes16 password) public payable {
-        require(password == municipality[msg.sender].password, "password not correct");
-        require(_bindingId <= bindingContractCount, "invalid binding id");
-        require(_requestId <= bindingContractCount, "invalid request id");
-        require(bindingRequests[_requestId].bindingId == _bindingId, "this request id not in this binding ");
-        require(msg.sender == bindingContracts[_bindingId].municipalityAddress, "you are not an owner of these binding contract ");
+        require(_bindingId <= bindingContractCount && _requestId <= bindingRequestsCount &&
+            bindingRequests[_requestId].bindingId == _bindingId, "invalid id");
+
+
+    require(password == municipality[msg.sender].password, "password not correct");
+        require(msg.sender == bindingContracts[_bindingId].municipalityAddress, "you are not owner");
         bindingContracts[_bindingId].isOpened = true;
         bindingContracts[_bindingId]._winnerId = _requestId;
         bindingRequests[_requestId].isWinner = true;
@@ -219,13 +205,12 @@ contract BindingContract {
     }
 
 
-    function cancelBinding(uint64 _bindingId, bytes16 password) public payable returns (bool){
+    function cancelBinding(uint64 _bindingId, bytes16 password) public payable returns (bool){require(_bindingId <= bindingContractCount && isActive(_bindingId) && !bindingContracts[_bindingId].isCanceled
+    && !bindingContracts[_bindingId].isOpened, "cannot cancel");
+
+
         require(password == municipality[msg.sender].password, "password not correct");
-        require(_bindingId <= bindingContractCount, "binding contract not found");
-        require(msg.sender == bindingContracts[_bindingId].municipalityAddress, "you are not owner this binding contract");
-        require(!bindingContracts[_bindingId].isCanceled, "this binding contract already canceled");
-        require(!bindingContracts[_bindingId].isOpened, "this binding contract is opened");
-        require(isActive(_bindingId), "this binding contract is ended");
+        require(msg.sender == bindingContracts[_bindingId].municipalityAddress, "you are not owner");
         bindingContracts[_bindingId].isCanceled = true;
         return true;
 
@@ -258,13 +243,12 @@ contract BindingContract {
     ) public payable {
         require(password == company[msg.sender].password, "password not correct");
 
-        require(isActive(_bindingId), "this binding contract not active or binding id not valid");
+        require(isActive(_bindingId), "binding not active");
         BindingData memory _bindingData = getBindingById(_bindingId);
         bytes16 [] memory _bindingDetails = _bindingData.details;
-        require(_details.length <= _bindingDetails.length, "invalid details , too much details ");
+        require(_details.length <= _bindingDetails.length, "invalid details");
         for (uint256 i = 0; i < _details.length; i++) {
-            require(searchInArray(_bindingDetails, _details[i]), "invalid in details (details item not found)");
-            require(!isRepeatedItem(_details, _details[i]), "invalid in details (repeating element)");
+            require(!isRepeatedItem(_details, _details[i]) && searchInArray(_bindingDetails, _details[i]), "invalid in details");
         }
 
         bindingRequestsCount++;
@@ -286,68 +270,31 @@ contract BindingContract {
     view
     returns (RequestBinding memory)
     {
-        require(_requestId <= bindingRequestsCount, "invalid request id");
+        require(_requestId <= bindingRequestsCount, "invalid id");
         return bindingRequests[_requestId];
     }
 
-    function getCompanyContractsRequestIds(address _companyAddress) public view
-    returns (uint64 [] memory)
+    function getContractsRequest(address _companyAddress, uint64 _bindingId) public view
+    returns (RequestBinding [] memory)
     {
-        uint64 [] memory contractRequestIds;
+        RequestBinding [] memory _contractRequests = new RequestBinding[](bindingRequestsCount);
+        uint64 counter = 0;
+        address _deadAddress;
         for (uint64 i = 1; i <= bindingRequestsCount; i++) {
-            if (bindingRequests[i].companyAddress == _companyAddress) {
-                contractRequestIds[i - 1] = i;
+            if (_companyAddress != _deadAddress && _bindingId == 0 && bindingRequests[i].companyAddress == _companyAddress) {
+                _contractRequests[i - 1] = bindingRequests[i];
+                counter++;
+            } else if (_companyAddress == _deadAddress && _bindingId != 0 && bindingRequests[i].bindingId == _bindingId) {
+                _contractRequests[i - 1] = bindingRequests[i];
+                counter++;
             }
         }
-        return contractRequestIds;
+        RequestBinding [] memory _contractRequests1 = new RequestBinding[](counter);
+        _contractRequests1 = _contractRequests;
+        delete _contractRequests;
+        return _contractRequests1;
     }
 
-    function getCompanyContractsRequestEndedIds(address _companyAddress) public view
-    returns (uint64 [] memory)
-    {
-        uint64 []memory contractRequestIds;
-        for (uint64 i = 1; i <= bindingRequestsCount; i++) {
-            if (bindingRequests[i].companyAddress == _companyAddress
-                && !isActive(i) && !bindingContracts[bindingRequests[i].bindingId].isOpened
-                && !bindingContracts[bindingRequests[i].bindingId].isCanceled) {
-                contractRequestIds[i - 1] = i;
-            }
-        }
-        return contractRequestIds;
-    }
-
-    function getCompanyContractsRequestOpenedIds(address _companyAddress) public view
-    returns (uint64 [] memory)
-    {
-        uint64 []memory contractRequestIds;
-        for (uint64 i = 1; i <= bindingRequestsCount; i++) {
-            if (bindingRequests[i].companyAddress == _companyAddress
-                && !isActive(i) && bindingContracts[bindingRequests[i].bindingId].isOpened
-                && !bindingContracts[bindingRequests[i].bindingId].isCanceled) {
-                contractRequestIds[i - 1] = i;
-            }
-        }
-        return contractRequestIds;
-    }
-
-    function getCompanyContractsRequestCanceledIds(address _companyAddress) public view
-    returns (uint64 [] memory)
-    {
-        uint64 [] memory contractRequestIds;
-        for (uint64 i = 1; i <= bindingRequestsCount; i++) {
-            if (bindingRequests[i].companyAddress == _companyAddress
-                && !isActive(i)
-                && bindingContracts[bindingRequests[i].bindingId].isCanceled) {
-                contractRequestIds[i - 1] = i;
-            }
-        }
-        return contractRequestIds;
-    }
-
-
-    function getBindingRequestCount() public view returns (uint64) {
-        return bindingRequestsCount;
-    }
 
     function searchInArray(bytes16 [] memory array, bytes16 variable) public pure returns (bool){
         for (uint i = 0; i < array.length; i++) {
